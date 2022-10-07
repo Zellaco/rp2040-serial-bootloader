@@ -17,6 +17,7 @@
 #include "hardware/uart.h"
 #include "hardware/watchdog.h"
 
+
 #ifdef DEBUG
 #include <stdio.h>
 #include "pico/stdio_usb.h"
@@ -31,7 +32,7 @@
 //  - BOOTLOADER_ENTRY_PIN is low
 //  - Watchdog scratch[5] == BOOTLOADER_ENTRY_MAGIC && scratch[6] == ~BOOTLOADER_ENTRY_MAGIC
 //  - No valid image header
-#define BOOTLOADER_ENTRY_PIN 15
+#define BOOTLOADER_ENTRY_PIN 2
 #define BOOTLOADER_ENTRY_MAGIC 0xb105f00d
 
 #define UART_TX_PIN 0
@@ -58,6 +59,8 @@
 #define WRITE_ADDR_MIN (XIP_BASE + IMAGE_HEADER_OFFSET + FLASH_SECTOR_SIZE)
 #define ERASE_ADDR_MIN (XIP_BASE + IMAGE_HEADER_OFFSET)
 #define FLASH_ADDR_MAX (XIP_BASE + PICO_FLASH_SIZE_BYTES)
+
+static struct repeating_timer blink_timer;
 
 static void disable_interrupts(void)
 {
@@ -476,6 +479,8 @@ static uint32_t handle_seal(uint32_t *args_in, uint8_t *data_in, uint32_t *resp_
 
 static uint32_t handle_go(uint32_t *args_in, uint8_t *data_in, uint32_t *resp_args_out, uint8_t *resp_data_out)
 {
+	cancel_repeating_timer(&blink_timer);
+	
 	disable_interrupts();
 
 	reset_peripherals();
@@ -680,8 +685,34 @@ static bool should_stay_in_bootloader()
 	return !gpio_get(BOOTLOADER_ENTRY_PIN) || wd_says_so;
 }
 
-int main(void)
+//--------------------------------------------------------------------+
+// Blinking Task
+//--------------------------------------------------------------------+
+void led_blink(void)
 {
+	const uint32_t interval_ms = 200;
+	static uint32_t start_ms = 0;
+
+
+
+	// Blink every interval ms
+	if ((us_to_ms(get_absolute_time()) - start_ms) < interval_ms)
+		return; // not enough time
+	start_ms += interval_ms;
+
+
+}
+
+bool ms100_timer_callback(struct repeating_timer *t)
+{
+	static bool led_state = false;
+	gpio_put(PICO_DEFAULT_LED_PIN, led_state);
+	led_state = !led_state; // toggle
+	return true;
+}
+
+int main(void)
+{	
 	gpio_init(PICO_DEFAULT_LED_PIN);
 	gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 	gpio_put(PICO_DEFAULT_LED_PIN, 1);
@@ -713,7 +744,13 @@ int main(void)
 	ctx.uart_buf = uart_buf;
 	enum state state = STATE_WAIT_FOR_SYNC;
 
+
+	// Add blink timer
+	add_repeating_timer_ms(-100, ms100_timer_callback, NULL, &blink_timer);	// Every 100ms
+	
 	while (1) {
+		led_blink();
+
 		switch (state) {
 		case STATE_WAIT_FOR_SYNC:
 			DBG_PRINTF("wait_for_sync\n");

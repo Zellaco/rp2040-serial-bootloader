@@ -688,27 +688,12 @@ static bool should_stay_in_bootloader()
 //--------------------------------------------------------------------+
 // Blinking Task
 //--------------------------------------------------------------------+
-void led_blink(void)
-{
-	const uint32_t interval_ms = 200;
-	static uint32_t start_ms = 0;
 
-
-
-	// Blink every interval ms
-	if ((us_to_ms(get_absolute_time()) - start_ms) < interval_ms)
-		return; // not enough time
-	start_ms += interval_ms;
-
-
-}
-
-bool ms100_timer_callback(struct repeating_timer *t)
+bool timer_callback(struct repeating_timer *t)
 {
 	static bool led_state = false;
 	gpio_put(PICO_DEFAULT_LED_PIN, led_state);
 	led_state = !led_state; // toggle
-	return true;
 }
 
 int main(void)
@@ -746,11 +731,9 @@ int main(void)
 
 
 	// Add blink timer
-	add_repeating_timer_ms(-100, ms100_timer_callback, NULL, &blink_timer);	// Every 100ms
+	add_repeating_timer_ms(-100, timer_callback, NULL, &blink_timer);	// Every 100ms
 	
 	while (1) {
-		led_blink();
-
 		switch (state) {
 		case STATE_WAIT_FOR_SYNC:
 			DBG_PRINTF("wait_for_sync\n");

@@ -34,6 +34,7 @@
 //  - No valid image header
 #define BOOTLOADER_ENTRY_PIN 2
 #define BOOTLOADER_ENTRY_MAGIC 0xb105f00d
+#define BOOTLOADER_GOGO_MAGIC  0xc0ffe421
 
 #define UART_TX_PIN 0
 #define UART_RX_PIN 1
@@ -510,8 +511,8 @@ static void do_reboot(bool to_bootloader)
 		watchdog_hw->scratch[5] = BOOTLOADER_ENTRY_MAGIC;
 		watchdog_hw->scratch[6] = ~BOOTLOADER_ENTRY_MAGIC;
 	} else {
-		watchdog_hw->scratch[5] = 0;
-		watchdog_hw->scratch[6] = 0;
+		watchdog_hw->scratch[5] = BOOTLOADER_GOGO_MAGIC;
+		watchdog_hw->scratch[6] = ~BOOTLOADER_GOGO_MAGIC;
 	}
 	watchdog_reboot(0, 0, 0);
 	while (1) {
@@ -682,7 +683,7 @@ static bool should_stay_in_bootloader()
 	bool wd_says_so = (watchdog_hw->scratch[5] == BOOTLOADER_ENTRY_MAGIC) &&
 		(watchdog_hw->scratch[6] == ~BOOTLOADER_ENTRY_MAGIC);
 
-	return !gpio_get(BOOTLOADER_ENTRY_PIN) || wd_says_so;
+	return gpio_get(BOOTLOADER_ENTRY_PIN)==0 || wd_says_so;
 }
 
 //--------------------------------------------------------------------+
@@ -694,6 +695,7 @@ bool timer_callback(struct repeating_timer *t)
 	static bool led_state = false;
 	gpio_put(PICO_DEFAULT_LED_PIN, led_state);
 	led_state = !led_state; // toggle
+	return true;
 }
 
 int main(void)
@@ -703,8 +705,8 @@ int main(void)
 	gpio_put(PICO_DEFAULT_LED_PIN, 1);
 
 	gpio_init(BOOTLOADER_ENTRY_PIN);
+	gpio_set_dir(BOOTLOADER_ENTRY_PIN, GPIO_IN);
 	gpio_pull_up(BOOTLOADER_ENTRY_PIN);
-	gpio_set_dir(BOOTLOADER_ENTRY_PIN, 0);
 
 	sleep_ms(10);
 

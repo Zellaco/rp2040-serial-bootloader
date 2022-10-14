@@ -510,11 +510,13 @@ static void do_reboot(bool to_bootloader)
 	if (to_bootloader) {
 		watchdog_hw->scratch[5] = BOOTLOADER_ENTRY_MAGIC;
 		watchdog_hw->scratch[6] = ~BOOTLOADER_ENTRY_MAGIC;
+		uart_write_blocking(uart0, (uint8_t *)"Boot1\r\n", 7);
 	} else {
-		watchdog_hw->scratch[5] = BOOTLOADER_GOGO_MAGIC;
-		watchdog_hw->scratch[6] = ~BOOTLOADER_GOGO_MAGIC;
+		watchdog_hw->scratch[5] = 0;
+		watchdog_hw->scratch[6] = 0;
+		uart_write_blocking(uart0, (uint8_t *)"Boot0\r\n", 7);
 	}
-	watchdog_reboot(0, 0, 0);
+	watchdog_reboot(0, 0, 100);
 	while (1) {
 		tight_loop_contents();
 		asm("");
@@ -734,6 +736,8 @@ int main(void)
 
 	// Add blink timer
 	add_repeating_timer_ms(-100, timer_callback, NULL, &blink_timer);	// Every 100ms
+
+	uart_write_blocking(uart0, (uint8_t *)"INBL", 4);
 	
 	while (1) {
 		switch (state) {

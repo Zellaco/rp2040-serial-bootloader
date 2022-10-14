@@ -17,6 +17,7 @@
 #include "hardware/uart.h"
 #include "hardware/watchdog.h"
 
+#define VERSION	1
 
 #ifdef DEBUG
 #include <stdio.h>
@@ -193,10 +194,10 @@ const struct command_desc cmds[] = {
 	},
 	{
 		// INFO
-		// OKOK flash_start flash_size erase_size write_size max_data_len
+		// OKOK flash_start flash_size erase_size write_size max_data_len version
 		.opcode = CMD_INFO,
 		.nargs = 0,
-		.resp_nargs = 5,
+		.resp_nargs = 6,
 		.size = NULL,
 		.handle = &handle_info,
 	},
@@ -420,7 +421,8 @@ struct image_header {
 	uint32_t vtor;
 	uint32_t size;
 	uint32_t crc;
-	uint8_t pad[FLASH_PAGE_SIZE - (3 * 4)];
+	uint32_t ver;
+	uint8_t pad[FLASH_PAGE_SIZE - (4 * 4)];
 };
 static_assert(sizeof(struct image_header) == FLASH_PAGE_SIZE, "image_header must be FLASH_PAGE_SIZE bytes");
 
@@ -452,10 +454,12 @@ static bool image_header_ok(struct image_header *hdr)
 
 static uint32_t handle_seal(uint32_t *args_in, uint8_t *data_in, uint32_t *resp_args_out, uint8_t *resp_data_out)
 {
-	struct image_header hdr = {
+	struct image_header hdr =
+	{
 		.vtor = args_in[0],
 		.size = args_in[1],
 		.crc = args_in[2],
+		.ver = VERSION << 8 | VERSION
 	};
 
 	if ((hdr.vtor & 0xff) || (hdr.size & 0x3)) {
@@ -500,7 +504,7 @@ static uint32_t handle_info(uint32_t *args_in, uint8_t *data_in, uint32_t *resp_
 	resp_args_out[2] = FLASH_SECTOR_SIZE;
 	resp_args_out[3] = FLASH_PAGE_SIZE;
 	resp_args_out[4] = MAX_DATA_LEN;
-
+	resp_args_out[5] = VERSION;
 	return RSP_OK;
 }
 
